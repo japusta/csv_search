@@ -25,9 +25,6 @@
 
 ---
 
-
----
-
 ## Быстрый старт (локально)
 
 ### 0) Предусловия
@@ -40,20 +37,115 @@
 
 **backend/.env**
 ```env
-# Postgres
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/csvdb?schema=public"
+PORT=3000
+API_TOKEN=supersecret
 
-# Redis
+# база
+DATABASE_URL=postgresql://postgres:secret123@localhost:5432/csvdb?schema=public
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=secret123
+DB_NAME=csvdb
+
+# redis (потом)
 REDIS_HOST=localhost
 REDIS_PORT=6379
 
-# Путь, куда кладём загруженные файлы (создастся автоматически)
 UPLOAD_DIR=./uploads
+MAX_UPLOAD_SIZE=104857600
+```
 
-# Лимит размера файла (МБ)
-MAX_FILE_SIZE_MB=100
+### 2) csv_search/.env
+```env
+PORT=3000
+NODE_ENV=production
+API_TOKEN=supersecret
 
-# В проде можно вернуть защиту по токену; локально guard пропускает всех
-NODE_ENV=development
+DATABASE_URL=postgresql://postgres:secret123@postgres:5432/csvdb?schema=public
+DB_HOST=postgres
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=secret123
+DB_NAME=csvdb
 
+REDIS_HOST=redis
+REDIS_PORT=6379
 
+UPLOAD_DIR=/app/uploads
+MAX_UPLOAD_SIZE=104857600
+```
+
+### 3) Redis
+``` bash
+docker run -d --name csv-redis \
+  -p 6379:6379 \
+  -v csv_redis_data:/data \
+  --restart unless-stopped \
+  redis:7-alpine
+```
+
+### 4) PostgreSQL
+
+```bash
+docker run -d --name csv-postgres \
+  -e POSTGRES_DB=csvdb \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=secret123 \
+  -p 5432:5432 \
+  -v csv_pg_data:/var/lib/postgresql/data \
+  --restart unless-stopped \
+  postgres:16-alpine
+```
+
+#### 4.1) postgres+redis
+
+```bash
+docker compose up -d postgres redis
+```
+
+### 5) backend
+
+```bash
+cd backend
+npm i
+npx prisma migrate deploy   # создаст все таблицы и индексы
+npm run start:dev
+```
+
+#### 5.1) воркер
+
+```bash
+cd backend
+npm run build
+npm run start:worker
+
+```
+
+### 6) frontend
+
+```bash
+cd frontend
+npm i
+npm run dev
+
+```
+Откройте http://localhost:5173.
+
+## API
+
+Базовый URL: http://localhost:3000/api
+
+POST /upload — загрузка CSV
+
+multipart/form-data, поле file (расширение .csv обязательно)
+
+GET /datasets — список наборов
+
+GET /datasets/:id — детали набора
+
+GET /rows?datasetId=:id&offset=0&limit=100 — строки набора
+
+GET /search?datasetId=:id&q=строка&offset=0&limit=50 — поиск по набору
+
+Локально авторизация не требуется (guard пропускает всех в development). В проде можно вернуть проверку через Authorization: Bearer ....
