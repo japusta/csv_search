@@ -7,31 +7,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum DatasetStatus {
+  QUEUED
+  PROCESSING
+  READY
+  ERROR
+}
+
 model Dataset {
-  id               String        @id @default(uuid())
-  originalFilename String
-  storedFilePath   String?
-  rowsCount        Int           @default(0)
-  columns          Json?
-  status           DatasetStatus @default(NEW)
-  progress         Int           @default(0)
-  errorText        String?
-  createdAt        DateTime      @default(now())
-  rows             DatasetRow[]
+  id             Int           @id @default(autoincrement())
+  name           String?       // можно хранить название набора
+  originalName   String        // имя файла, который загрузили
+  storedFilePath String        // путь на диске
+  rowCount       Int           @default(0)
+  status         DatasetStatus @default(QUEUED)
+  progress       Int           @default(0)
+  errorText      String?
+  rows           DatasetRow[]
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 }
 
 model DatasetRow {
-  id        String  @id @default(uuid())
-  datasetId String
-  dataset   Dataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  id        Int      @id @default(autoincrement())
+  datasetId Int
+  dataset   Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
   data      Json
+  createdAt DateTime @default(now())
 
-  @@index([datasetId])
-}
-
-enum DatasetStatus {
-  NEW
-  PROCESSING
-  READY
-  FAILED
+  @@index([datasetId, id], name: "DatasetRow_datasetId_id_idx")
 }
